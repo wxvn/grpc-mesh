@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package urlshortener;
+
+option go_package = "github.com/wxvn/grpc-mesh/proto/urlshortener;urlshortener";
+
+service URLShortenerService {
+  rpc CreateShortURL(CreateShortURLRequest) returns (CreateShortURLResponse);
+
+  rpc GetMyURLs(GetMyURLsRequest) returns (GetMyURLsResponse);
+
+  rpc GetURLStats(GetURLStatsRequest) returns (GetURLStatsResponse);
+
+  rpc DeleteURL(DeleteURLRequest) returns (DeleteURLResponse);
+}
+
+message CreateShortURLRequest {
+  string url = 1;
+}
+
+message CreateShortURLResponse {
+  string id = 1;
+  string short_code = 2;
+  string short_url = 3;
+  string original_url = 4;
+  int64 clicks = 5;
+  string created_at = 6;
+}
+
+message GetMyURLsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message GetMyURLsResponse {
+  repeated CreateShortURLResponse urls = 1;
+}
+
+message GetURLStatsRequest {
+  string id = 1;
+}
+
+message GetURLStatsResponse {
+  string id = 1;
+  string short_code = 2;
+  string short_url = 3;
+  string original_url = 4;
+  int64 clicks = 5;
+  string created_at = 6;
+}
+
+message DeleteURLRequest {
+  string id = 1;
+}
+
+message DeleteURLResponse {
+  bool success = 1;
+}

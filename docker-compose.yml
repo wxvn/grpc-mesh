@@ -1,0 +1,151 @@
+
+services:
+  postgres:
+    image: postgres:18.4
+    container_name: auth-postgres
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+      POSTGRES_DB: auth_db
+    ports:
+      - "${AUTH_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mesh-network
+
+  migrator:
+    image: migrate/migrate:latest
+    container_name: auth-migrator
+    volumes:
+      - ./migrations:/migrations
+    command:
+      - -path=/migrations/auth
+      - -database=postgres://auth_user:auth_password@postgres:5432/auth_db?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mesh-network
+
+  url-postgres:
+    image: postgres:18.4
+    container_name: url-postgres
+    environment:
+      POSTGRES_USER: url_user
+      POSTGRES_PASSWORD: url_password
+      POSTGRES_DB: url_db
+    ports:
+      - "${URL_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - url-pg-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U url_user -d url_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mesh-network
+
+  url-migrator:
+    image: migrate/migrate:latest
+    container_name: url-migrator
+    volumes:
+      - ./migrations:/migrations
+    command:
+      - -path=/migrations/url
+      - -database=postgres://url_user:url_password@url-postgres:5432/url_db?sslmode=disable
+      - up
+    depends_on:
+      url-postgres:
+        condition: service_healthy
+    networks:
+      - mesh-network
+
+  auth:
+    build:
+      context: .
+      args:
+        SERVICE: auth
+    container_name: auth
+    environment:
+      ENV: ${ENV}
+      AUTH_POSTGRES_URL: postgres://auth_user:auth_password@postgres:5432/auth_db?sslmode=disable
+      AUTH_GRPC_PORT: ${AUTH_GRPC_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL}
+    ports:
+      - "${AUTH_GRPC_PORT}:${AUTH_GRPC_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    networks:
+      - mesh-network
+
+  weather:
+    build:
+      context: .
+      args:
+        SERVICE: weather
+    container_name: weather
+    environment:
+      ENV: ${ENV}
+      WEATHER_GRPC_PORT: ${WEATHER_GRPC_PORT}
+      AUTH_GRPC_ADDRESS: auth:${AUTH_GRPC_PORT}
+    ports:
+      - "${WEATHER_GRPC_PORT}:${WEATHER_GRPC_PORT}"
+    depends_on:
+      auth:
+        condition: service_started
+    networks:
+      - mesh-network
+
+  url:
+    build:
+      context: .
+      args:
+        SERVICE: url
+    container_name: url
+    environment:
+      ENV: ${ENV}
+      URL_POSTGRES_URL: postgres://url_user:url_password@url-postgres:5432/url_db?sslmode=disable
+      URL_GRPC_PORT: ${URL_GRPC_PORT}
+      URL_HTTP_PORT: ${URL_HTTP_PORT}
+      AUTH_GRPC_ADDRESS: auth:${AUTH_GRPC_PORT}
+      URL_PUBLIC_SCHEME: ${URL_PUBLIC_SCHEME}
+      URL_PUBLIC_HOST: ${URL_PUBLIC_HOST}
+      URL_PUBLIC_PORT: ${URL_PUBLIC_PORT}
+    ports:
+      - "${URL_GRPC_PORT}:${URL_GRPC_PORT}"
+      - "${URL_HTTP_PORT}:${URL_HTTP_PORT}"
+    depends_on:
+      url-postgres:
+        condition: service_healthy
+      url-migrator:
+        condition: service_completed_successfully
+      auth:
+        condition: service_started
+    networks:
+      - mesh-network
+
+networks:
+  mesh-network:
+    driver: bridge
+
+volumes:
+  pg-data:
+    driver: local
+
+  url-pg-data:
+    driver: local
+

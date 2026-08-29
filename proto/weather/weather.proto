@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package weather;
+
+option go_package = "github.com/wxvn/grpc-mesh/proto/weather;weather";
+
+service WeatherService {
+  rpc GetCurrentWeather(GetCurrentWeatherRequest) returns (GetCurrentWeatherResponse);
+
+  rpc GetForecast(GetForecastRequest) returns (GetForecastResponse);
+}
+
+message Coordinates {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message GetCurrentWeatherRequest {
+  oneof location {
+    string city = 1;
+    Coordinates coordinates = 2;
+  }
+}
+
+message GetCurrentWeatherResponse {
+  string city = 1;
+
+  double latitude = 2;
+  double longitude = 3;
+
+  double elevation = 4;
+
+  double temperature = 5;
+  double feels_like = 6;
+  int32 humidity = 7;
+  double wind_speed = 8;
+
+  string condition = 9;
+
+  string time = 10;
+  string timezone = 11;
+}
+
+message GetForecastRequest {
+  oneof location {
+    string city = 1;
+    Coordinates coordinates = 2;
+  }
+
+  int32 days = 3;
+}
+
+message ForecastDay {
+  string date = 1;
+
+  double temp_min = 2;
+  double temp_max = 3;
+
+  int32 precipitation_probability = 4;
+  string condition = 5;
+}
+
+message GetForecastResponse {
+  string city = 1;
+
+  double latitude = 2;
+  double longitude = 3;
+  double elevation = 4;
+
+  repeated ForecastDay days = 5;
+}
